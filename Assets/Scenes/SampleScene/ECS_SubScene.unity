@@ -282,8 +282,8 @@ MonoBehaviour:
   moveSpeed: 2
   maxHealth: 100
   maxStamina: 100
-  staminaDrain: 20
-  staminaRecovery: 10
+  staminaDrain: 10
+  staminaRecovery: 15
   player: {fileID: 1510097461}
 --- !u!65 &2121658699
 BoxCollider:
