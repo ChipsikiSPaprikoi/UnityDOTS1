@@ -39,18 +39,20 @@ public class EntityAuthoring : MonoBehaviour
 
             AddComponent(entity, new CanMove());
 
+            Entity targetEntity = Entity.Null;
+
             if (authoring.player != null)
             {
-                Entity playerEntity = GetEntity(
+                targetEntity = GetEntity(
                     authoring.player,
                     TransformUsageFlags.Dynamic
                 );
-
-                AddComponent(entity, new MoveTarget
-                {
-                    Value = playerEntity
-                });
             }
+            
+            AddComponent(entity, new MoveTarget
+            {
+                Value = targetEntity
+            });
         }
     }
 }

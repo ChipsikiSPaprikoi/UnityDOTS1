@@ -1,43 +1,77 @@
+using System.Collections.Generic;
 using TMPro;
+using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
 public class ECSStatsUI : MonoBehaviour
 {
-    public TMP_Text statsText;
+    public Transform contentRoot;
+    public TMP_Text rowPrefab;
+
+    private readonly Dictionary<Entity, TMP_Text> rows = new();
 
     private void Update()
     {
-        if (!World.DefaultGameObjectInjectionWorld.IsCreated)
+        World world = World.DefaultGameObjectInjectionWorld;
+
+        if (world == null || !world.IsCreated)
             return;
 
-        EntityManager entityManager =
-            World.DefaultGameObjectInjectionWorld.EntityManager;
+        EntityManager entityManager = world.EntityManager;
 
-        EntityQuery query =
-            entityManager.CreateEntityQuery(
-                typeof(Health),
-                typeof(Stamina),
-                typeof(MoveSpeed)
-            );
+        EntityQuery query = entityManager.CreateEntityQuery(
+            typeof(Health),
+            typeof(Stamina),
+            typeof(MoveSpeed)
+        );
 
-        if (query.IsEmpty)
-            return;
+        NativeArray<Entity> entities =
+            query.ToEntityArray(Allocator.Temp);
 
-        Entity entity = query.GetSingletonEntity();
+        HashSet<Entity> activeEntities = new();
 
-        Health health =
-            entityManager.GetComponentData<Health>(entity);
+        foreach (Entity entity in entities)
+        {
+            activeEntities.Add(entity);
 
-        Stamina stamina =
-            entityManager.GetComponentData<Stamina>(entity);
+            Health health =
+                entityManager.GetComponentData<Health>(entity);
 
-        MoveSpeed speed =
-            entityManager.GetComponentData<MoveSpeed>(entity);
+            Stamina stamina =
+                entityManager.GetComponentData<Stamina>(entity);
 
-        statsText.text =
-            $"Health: {health.Value:0} / 100\n" +
-            $"Stamina: {stamina.Current:0} / {stamina.Max:0}\n" +
-            $"Speed: {speed.Value:0.0}";
+            MoveSpeed speed =
+                entityManager.GetComponentData<MoveSpeed>(entity);
+
+            if (!rows.TryGetValue(entity, out TMP_Text row))
+            {
+                row = Instantiate(rowPrefab, contentRoot);
+                rows.Add(entity, row);
+            }
+
+            row.text =
+                $"Entity {entity.Index} " +
+                $"Health: {health.Value:0} / 100 " +
+                $"Stamina: {stamina.Current:0} / {stamina.Max:0} " +
+                $"Speed: {speed.Value:0.0} ";
+        }
+
+        entities.Dispose();
+        query.Dispose();
+
+        List<Entity> removedEntities = new();
+
+        foreach (var pair in rows)
+        {
+            if (!activeEntities.Contains(pair.Key))
+                removedEntities.Add(pair.Key);
+        }
+
+        foreach (Entity entity in removedEntities)
+        {
+            Destroy(rows[entity].gameObject);
+            rows.Remove(entity);
+        }
     }
 }
