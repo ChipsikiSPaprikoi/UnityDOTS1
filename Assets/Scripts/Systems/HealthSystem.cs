@@ -1,19 +1,21 @@
+using Unity.Burst;
 using Unity.Entities;
 
 public partial struct HealthSystem : ISystem
 {
+    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        foreach (var (health, entity) in
-                 SystemAPI.Query<RefRO<Health>>()
-                     .WithEntityAccess())
+        state.Dependency = new HealthJob().ScheduleParallel(state.Dependency);
+    }
+
+    [BurstCompile]
+    public partial struct HealthJob : IJobEntity
+    {
+        private void Execute(in Health health, EnabledRefRW<CanMove> canMove)
         {
-            if (health.ValueRO.Value <= 0f)
-            {
-                state.EntityManager.SetComponentEnabled<CanMove>(
-                    entity,
-                    false);
-            }
+            if (health.Value <= 0f)
+                canMove.ValueRW = false;
         }
     }
 }

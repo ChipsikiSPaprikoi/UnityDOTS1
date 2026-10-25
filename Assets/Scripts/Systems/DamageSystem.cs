@@ -1,18 +1,28 @@
+using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 
 public partial struct DamageSystem : ISystem
 {
+    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        float damage = 5f * SystemAPI.Time.DeltaTime;
-
-        foreach (var health in SystemAPI.Query<RefRW<Health>>())
+        var job = new DamageJob
         {
-            health.ValueRW.Value = math.max(
-                0f,
-                health.ValueRO.Value - damage
-            );
+            Damage = 5f * SystemAPI.Time.DeltaTime
+        };
+
+        state.Dependency = job.ScheduleParallel(state.Dependency);
+    }
+
+    [BurstCompile]
+    public partial struct DamageJob : IJobEntity
+    {
+        public float Damage;
+
+        private void Execute(ref Health health)
+        {
+            health.Value = math.max(0f, health.Value - Damage);
         }
     }
 }

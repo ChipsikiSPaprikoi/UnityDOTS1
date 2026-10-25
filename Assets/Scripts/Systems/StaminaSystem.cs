@@ -1,66 +1,59 @@
+using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using Unity.Collections;
 
 public partial struct StaminaSystem : ISystem
 {
+    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        float deltaTime = SystemAPI.Time.DeltaTime;
-
-        foreach (var (stamina, transform, target) in
-                 SystemAPI.Query<
-                     RefRW<Stamina>,
-                     RefRO<LocalTransform>,
-                     RefRO<MoveTarget>>())
+        var job = new StaminaJob
         {
-            if (!SystemAPI.HasComponent<LocalTransform>(
-                    target.ValueRO.Value))
-                continue;
+            DeltaTime = SystemAPI.Time.DeltaTime,
+            LocalTransforms = SystemAPI.GetComponentLookup<LocalTransform>(true)
+        };
 
-            LocalTransform targetTransform =
-                SystemAPI.GetComponent<LocalTransform>(
-                    target.ValueRO.Value);
+        state.Dependency = job.ScheduleParallel(state.Dependency);
+    }
+
+    [BurstCompile]
+    public partial struct StaminaJob : IJobEntity
+    {
+        public float DeltaTime;
+
+        [ReadOnly]
+        public ComponentLookup<LocalTransform> LocalTransforms;
+
+        private void Execute(
+            ref Stamina stamina,
+            EnabledRefRW<CanMove> canMove,
+            in LocalTransform transform,
+            in MoveTarget target)
+        {
+            Entity targetEntity = target.Value;
+            if (targetEntity == Entity.Null ||
+                !LocalTransforms.HasComponent(targetEntity))
+                return;
 
             float distance = math.distance(
-                transform.ValueRO.Position,
-                targetTransform.Position);
+                transform.Position,
+                LocalTransforms[targetEntity].Position);
 
             bool isMoving = distance > 0.1f;
 
-            if (isMoving && stamina.ValueRO.Current > 0f)
-            {
-                stamina.ValueRW.Current -=
-                    stamina.ValueRO.DrainPerSecond * deltaTime;
-            }
+            if (isMoving && stamina.Current > 0f)
+                stamina.Current -= stamina.DrainPerSecond * DeltaTime;
             else if (!isMoving)
-            {
-                stamina.ValueRW.Current +=
-                    stamina.ValueRO.RecoveryPerSecond * deltaTime;
-            }
+                stamina.Current += stamina.RecoveryPerSecond * DeltaTime;
 
-            stamina.ValueRW.Current = math.clamp(
-                stamina.ValueRO.Current,
-                0f,
-                stamina.ValueRO.Max);
-        }
+            stamina.Current = math.clamp(stamina.Current, 0f, stamina.Max);
 
-        foreach (var (stamina, entity) in
-                 SystemAPI.Query<RefRO<Stamina>>()
-                     .WithEntityAccess())
-        {
-            if (stamina.ValueRO.Current <= 0f)
-            {
-                state.EntityManager.SetComponentEnabled<CanMove>(
-                    entity,
-                    false);
-            }
-            else if (stamina.ValueRO.Current >= 20f)
-            {
-                state.EntityManager.SetComponentEnabled<CanMove>(
-                    entity,
-                    true);
-            }
+            if (stamina.Current <= 0f)
+                canMove.ValueRW = false;
+            else if (stamina.Current >= 20f)
+                canMove.ValueRW = true;
         }
     }
 }
