@@ -645,6 +645,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Entity
       objectReference: {fileID: 0}
+    - target: {fileID: 143025866283257199, guid: 547d4822bd1b96942a7aaa4e8099251a, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 383557043375147280, guid: 547d4822bd1b96942a7aaa4e8099251a, type: 3}
       propertyPath: player
       value: 
